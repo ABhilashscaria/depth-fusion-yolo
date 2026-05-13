@@ -7,7 +7,7 @@ This project is an architectural evolution of my 2023 MSc thesis at the Universi
 
 While the academic thesis proved the theoretical viability of sensor-fusion for spatial awareness, it suffered from critical production bottlenecks. The original work lacked true architectural integration; it relied on surface-level scripting to run two models sequentially, forcing heavy memory transfers between the GPU and CPU to fuse the outputs via NumPy. This resulted in massive latency, rendering the system unusable for real-time edge hardware.
 
-**The Architectural Leap (2026 Iteration):**
+**The New Architecture:**
 This project Abandons surface-level scripting for a **Deep Fusion** approach. Instead of treating detection and depth as isolated scripts, this system wraps YOLO11n and Depth Anything V2 into a single, custom PyTorch `nn.Module`. 
 
 All bounding-box-to-depth-map slicing and variance math is executed natively via PyTorch tensor operations strictly within the GPU VRAM (Zero-Copy Inference). By engineering this integration at the computational graph level—and compiling the entire unified architecture into a TensorRT FP16 engine—this pipeline successfully transitions the heavy academic concept into a high-speed, 30+ FPS edge-deployable system.
