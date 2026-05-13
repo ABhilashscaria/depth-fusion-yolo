@@ -1,0 +1,27 @@
+# Python & Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+
+# VS Code / Cursor
+.vscode/
+.cursorrules
+
+# ML Weights & Large Files (CRITICAL)
+*.pt
+*.onnx
+*.engine
+*.trt
+weights/
+models/
+
+# Data & Video
+data/
+videos/
+*.mp4
+
+# Output & Logs
+logs/
+runs/
+output/
