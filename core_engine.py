@@ -79,4 +79,3 @@ if __name__ == "__main__":
     # Check VRAM footprint
     allocated_vram = torch.cuda.memory_allocated(0) / (1024 ** 2)
     print(f"Active VRAM Footprint: {allocated_vram:.2f} MB")
-    print("✅ Day 3 Architecture successfully running in VRAM.")

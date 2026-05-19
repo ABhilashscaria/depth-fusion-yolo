@@ -1,9 +1,11 @@
 A real-time, edge-optimized computer vision pipeline that fuses YOLO11 object detection with Depth Anything V2 (Small) monocular depth estimation. This system programmatically filters out high-fidelity 2D false positives (e.g., reflections, cardboard cutouts, and life-sized posters) without requiring a physical LiDAR sensor.
+
 🏢 The Business Problem: Alarm Fatigue
 
 In industrial monitoring and autonomous navigation (e.g., smart AGVs or forklift anti-collision systems), standard 2D object detection suffers from a critical safety flaw. A standard vision model will confidently detect a real worker, a life-sized safety poster of a worker, and a reflection of a worker in a glass window with the exact same high confidence score (0.85+).
 
 Attempting to fix this by raising the confidence threshold creates dangerous "false negatives," blinding the system to actual humans in low lighting. This fundamental flaw triggers constant false alarms, leading to operator "alarm fatigue."
+
 🎓 The Academic Origin (University of Southampton)
 
 This project is the industrial, edge-deployed evolution of my 2023 MSc thesis at the University of Southampton, which originally explored depth-aware object detection using YOLOv3 and AdaBins.
