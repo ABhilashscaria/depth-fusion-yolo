@@ -20,6 +20,7 @@ models/
 data/
 videos/
 *.mp4
+initial_test_images/
 
 # Output & Logs
 logs/
