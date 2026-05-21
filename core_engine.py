@@ -26,55 +26,109 @@ class DepthConditionedYOLO:
             device=device
         )
         print("✅ Dual-Engine Initialization Complete.")
+    def _isolate_foreground_variance_gpu(self, depth_crop, tolerance=0.40):
+        """
+        Solves the 'Cardboard Cutout' background bleeding problem using pure VRAM tensor math.
+        """
+        # 1. Size check (if box is too small, skip to avoid tensor errors)
+        if depth_crop.numel() < 10:
+            return torch.tensor(0.0, device=self.device), torch.tensor(0.0, device=self.device)
+
+        # 2. Find the center of mass (Median Depth) natively on GPU
+        median_depth = torch.median(depth_crop)
+
+        # 3. Define the physical tolerance band
+        lower_bound = median_depth - (median_depth * tolerance)
+        upper_bound = median_depth + (median_depth * tolerance)
+
+        # 4. Boolean Masking (Zero-Copy Isolation)
+        foreground_mask = (depth_crop >= lower_bound) & (depth_crop <= upper_bound)
+        foreground_pixels = depth_crop[foreground_mask]
+
+        # 5. True Variance Calculation
+        if foreground_pixels.numel() > 1: # Variance requires at least 2 pixels
+            variance = torch.var(foreground_pixels)
+        else:
+            variance = torch.tensor(0.0, device=self.device)
+
+        return variance, median_depth
     
     @torch.inference_mode()
-    def predict_raw(self, image_path_or_frame):
+    def predict(self, image_path_or_frame, variance_threshold=0.0005):
         """
-        Executes a concurrent forward pass through both models.
-        Returns the raw 2D bounding boxes and the raw 3D depth tensor.
+        Executes the full edge pipeline: Ingestion -> Concurrency -> VRAM Fusion -> Logic Gating.
+        Returns a structured list of verified detections.
         """
-        # Handle both file paths and raw OpenCV frames
+        from PIL import Image # Ensure this is imported at the top of your file
+        
         if isinstance(image_path_or_frame, str):
             frame = cv2.imread(image_path_or_frame)
         else:
             frame = image_path_or_frame
 
-        # Hugging Face pipelines expect RGB images, while OpenCV loads in BGR
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Convert the frame to a PIL Image
         pil_image = Image.fromarray(frame_rgb)
 
-        # 1. Execute 2D Spatial Pass
-        # verbose=False stops YOLO from printing log spam every single frame
+        # --- 1. Concurrent Forward Pass ---
         yolo_results = self.yolo(frame, verbose=False)[0]
-
-        # 2. Execute 3D Depth Pass
         depth_results = self.depth_estimator(pil_image)
-
-        # 3. VRAM Tensor Extraction
-        # We extract the depth map and immediately convert it to a normalized PyTorch tensor
-        # sitting on the GPU, ready for Day 4's fusion math.
+        
         depth_array = np.array(depth_results['depth'], dtype=np.float32) / 255.0
         depth_tensor = torch.from_numpy(depth_array).to(self.device)
 
-        return yolo_results.boxes, depth_tensor
+        fused_predictions = []
+
+        # --- 2. Zero-Copy VRAM Fusion ---
+        for box in yolo_results.boxes:
+            cls_id = int(box.cls[0])
+            class_name = self.yolo.names[cls_id]
+
+            if class_name == 'person':
+                confidence = float(box.conf[0])
+                
+                # Keep coordinates on the GPU, cast to integers for tensor slicing
+                xyxy = box.xyxy[0].to(torch.int32)
+                x1, y1, x2, y2 = xyxy[0], xyxy[1], xyxy[2], xyxy[3]
+
+                # Slicing the depth tensor natively on CUDA
+                depth_crop = depth_tensor[y1:y2, x1:x2]
+
+                # Apply background isolation math
+                variance, median_depth = self._isolate_foreground_variance_gpu(depth_crop)
+
+                # --- 3. Logic Gating ---
+                # Move scalar values back to CPU for the final Python dictionary payload
+                variance_val = variance.item()
+                is_real_3d = variance_val > variance_threshold
+
+                prediction_payload = {
+                    "box": [x1.item(), y1.item(), x2.item(), y2.item()],
+                    "confidence": confidence,
+                    "class": class_name,
+                    "depth_metrics": {
+                        "median": median_depth.item(),
+                        "variance": variance_val
+                    },
+                    "is_real_3d": is_real_3d
+                }
+                fused_predictions.append(prediction_payload)
+
+        return fused_predictions
 
 
 
 
 if __name__ == "__main__":
     # Initialize the engine
+    import json
     engine = DepthConditionedYOLO()
     
-    # Run a test frame
-    print("\n🚀 Executing concurrent forward pass...")
-    boxes, depth_tensor = engine.predict_raw('test.jpg')
+    print("\n🚀 Executing full VRAM fusion pipeline...")
+    # Use the same image that gave you 2 detections earlier
+    results = engine.predict('maxresdefault.jpg') 
     
-    print("\n--- Pipeline Telemetry ---")
-    print(f"Total Detections: {len(boxes)}")
-    print(f"Depth Tensor Shape: {depth_tensor.shape}")
-    print(f"Depth Tensor Device: {depth_tensor.device}")
+    print("\n--- Final Output Payload ---")
+    print(json.dumps(results, indent=4))
     
     # Check VRAM footprint
     allocated_vram = torch.cuda.memory_allocated(0) / (1024 ** 2)
