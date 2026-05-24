@@ -20,7 +20,10 @@ models/
 data/
 videos/
 *.mp4
+*.jpg
+*.jpeg
 initial_test_images/
+*.webp
 
 # Output & Logs
 logs/
