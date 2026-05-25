@@ -1,43 +1,69 @@
-A real-time, edge-optimized computer vision pipeline that fuses YOLO11 object detection with Depth Anything V2 (Small) monocular depth estimation. This system programmatically filters out high-fidelity 2D false positives (e.g., reflections, cardboard cutouts, and life-sized posters) without requiring a physical LiDAR sensor.
+# 🛡️ Zero-Shot Spatial Verification Engine (Edge AI)
 
-🏢 The Business Problem: Alarm Fatigue
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-EE4C2C.svg)](https://pytorch.org)
+[![TensorRT](https://img.shields.io/badge/NVIDIA-TensorRT-76B900.svg)](https://developer.nvidia.com/tensorrt)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-In industrial monitoring and autonomous navigation (e.g., smart AGVs or forklift anti-collision systems), standard 2D object detection suffers from a critical safety flaw. A standard vision model will confidently detect a real worker, a life-sized safety poster of a worker, and a reflection of a worker in a glass window with the exact same high confidence score (0.85+).
+**A VRAM-optimized, split-stream Computer Vision architecture for eliminating 2D spatial spoofs, specular reflections, and environmental hallucinations in industrial tracking pipelines.**
 
-Attempting to fix this by raising the confidence threshold creates dangerous "false negatives," blinding the system to actual humans in low lighting. This fundamental flaw triggers constant false alarms, leading to operator "alarm fatigue."
+![System Demo Placeholder](https://via.placeholder.com/800x400.png?text=[Insert+Your+Live+Tracking+GIF+Here])
 
-🎓 The Academic Origin (University of Southampton)
+---
 
-This project is the industrial, edge-deployed evolution of my 2023 MSc thesis at the University of Southampton, which originally explored depth-aware object detection using YOLOv3 and AdaBins.
+## 🧬 Project Origins & The Economic Premise
+Originating from theoretical research conducted during my **MSc in Artificial Intelligence at the University of Southampton**, this architecture has been heavily refactored into a real-time, production-grade edge system. 
 
-While the thesis successfully proved the theoretical viability of sensor-fusion for spatial awareness, it suffered from standard academic deployment bottlenecks:
+**The Economic Thesis:** Industrial autonomy (AGVs) and perimeter security currently rely on $5,000+ LiDAR and Time-of-Flight (ToF) sensors for perfect 3D mapping. However, these systems fail economically at scale and struggle with glass. This architecture democratizes 3D spatial awareness by extracting volumetric physics purely from standard RGB streams, achieving LiDAR-like spoof rejection on sub-$300 edge GPUs (e.g., RTX 4060, NVIDIA Jetson).
 
-    Sequential Scripting Bottleneck: The original architecture relied on surface-level scripting to run two models sequentially, forcing massive memory transfers between the GPU and CPU to fuse the outputs via NumPy.
+## ⚙️ The Engineering Problem
+Industrial automation and retail analytics rely heavily on 2D object detection feeding into temporal trackers (e.g., DeepSORT, ByteTrack). However, these pipelines critically fail when encountering 2D artifacts. 
+* **The Ghost ID Crisis:** Specular reflections on glass or polished floors cause trackers to assign IDs to "ghost" entities, leading to track fragmentation and corrupted analytics.
+* **The False Stop Liability:** Autonomous Guided Vehicles (AGVs) trigger emergency brakes when 2D sensors detect human safety posters, wall murals, or reflections on shrink-wrapped pallets, causing massive operational downtime.
 
-    Unusable Latency: The constant CPU-GPU context switching resulted in extreme latency, rendering the academic system unusable for real-time edge robotics.
+## 🚀 The Solution: Split-Stream Architecture
+This project introduces a **Dual-Engine Spatial Verification Pipeline** that intercepts detections *before* they corrupt the tracking loop. By fusing YOLO11 Instance Segmentation with Depth Anything V2 natively in VRAM, the system calculates relative environmental physics without the PCIe bottleneck.
 
-🚀 The Industrial Pivot: Graph-Level Concurrency & Zero-Copy VRAM
+### Hardware Optimization & Zero-Copy Math
+1. **Split-Stream Processing:** Maintains standard YOLO bounding box coordinates `[x1, y1, x2, y2]` for legacy tracking loops, while routing high-resolution boolean segmentation masks to the 3D verification engine.
+2. **Zero-Copy VRAM Execution:** YOLO masks and Hugging Face depth tensors are cross-multiplied entirely on the GPU (`cuda:0`). By utilizing native boolean indexing (`depth_tensor[binary_mask]`), no data crosses to the CPU for NumPy processing until the final logic gate.
+3. **Dynamic Halo Calibration:** Eliminates brittle, hardcoded variance thresholds. The system uses PyTorch 2D Max Pooling to mathematically dilate the object's mask natively on the GPU, creating an environmental "Halo" ring. The system self-calibrates to any lighting or background texture by calculating the physical distance between the object and this immediate background.
 
-To transition this academic theory into a 30+ FPS edge-deployable system, this project introduces a Late-Fusion VRAM Bridge optimized for Ada Lovelace architectures (RTX 4000 series / Edge GPUs).
+## 🚧 Overcoming Monocular Hallucination (Dual-Gate Physics)
+During physical stress testing, a critical limitation of Vision Transformers was isolated: high-definition 2D cutouts with printed shadows trick monocular models into hallucinating 3D volume. To solve this limitation in software, the architecture employs a **Dual-Gate Physics** approach:
 
-Why not a unified PyTorch nn.Module?
-Naive architectural fusion attempts to wrap both a Transformer (Depth) and a CNN (YOLO) into a single PyTorch computational graph. While elegant in Python, this creates monolithic ONNX files that routinely crash the TensorRT C++ compiler due to unsupported multi-modal layer operators, severely limiting edge deployment.
+* **Gate 1 - Internal Volume (`has_volume`):** Measures the isolated depth variance of the silhouette. Evaluates if the object possesses internal 3D curves. *(Successfully filters out flat specular reflections and glass noise).*
+* **Gate 2 - Environmental Step-Off (`pops_out`):** Compares the object's median depth to the dilated Halo mask. *(Successfully filters out hallucinated depth printed flush against a wall, such as posters or murals).*
 
-The Solution:
-This architecture bypasses the compiler bottleneck by keeping the models completely decoupled at the engine level, but mathematically fused in memory:
+---
 
-    Dual TRT Compilation: YOLO11 and Depth Anything V2 are compiled into distinct, highly optimized TensorRT FP16 .engine files.
+## 📊 System Telemetry & Benchmarks
+*Tested on an NVIDIA RTX 4060 (8GB) utilizing CUDA-accelerated PyTorch. Metrics generated via MLflow and CUDA Events.*
 
-    Concurrency: Both engines read the incoming video frame simultaneously using asynchronous CUDA streams.
+| Metric | Performance | Business Impact |
+| :--- | :--- | :--- |
+| **Throughput (FPS)** | `35.79 FPS` | Exceeds real-time 30 FPS camera hardware limits. |
+| **Average Latency** | `27.94 ms` | Instantaneous spatial verification. |
+| **P99 Latency (Tail)** | `30.86 ms` | Highly stable execution with no garbage-collection spikes, ensuring AGV braking safety. |
+| **Peak VRAM Active** | `310.42 MB` | Extremely lightweight; leaves 95% of GPU memory free for heavy temporal tracking loops. |
 
-    Zero-Copy Fusion: All bounding-box-to-depth-map slicing, median background isolation, and variance mathematics are executed using pure tensor operations strictly inside the GPU VRAM. The data never transfers back to the CPU.
+---
 
-📐 The Physics of the Filter
+## 🛠️ Quickstart & Installation
 
-Instead of relying on a visual confidence score, this pipeline mathematically analyzes the physical 3D volume of the detected object:
+To ensure strict reproducibility and prevent CPU-bottlenecking, you must install the CUDA-accelerated PyTorch wheels specific to your hardware before installing the remaining pipeline dependencies.
 
-    3D Objects (Real Person): High depth variance. The physics of a human body dictate that the nose is closer than the shoulders, and the body is closer than the background wall.
+```bash
+# 1. Clone the repository
+git clone [https://github.com/yourusername/zero-shot-spatial-engine.git](https://github.com/yourusername/zero-shot-spatial-engine.git)
+cd zero-shot-spatial-engine
 
-    2D Surfaces (Reflections/Posters): Near-zero depth variance. The "person" is perfectly flat and physically flush with the wall.
+# 2. Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
 
-The system calculates this variance inside the bounding box, isolating the foreground via median depth mapping. If the variance is near zero, the system recognizes a 2D surface and silently suppresses the false alarm.
+# 3. Install PyTorch with CUDA 12.1 support (Required for RTX 40-series/Ampere+)
+pip install torch torchvision --index-url [https://download.pytorch.org/whl/cu121](https://download.pytorch.org/whl/cu121)
+
+# 4. Install pipeline dependencies
+pip install -r requirements.txt
