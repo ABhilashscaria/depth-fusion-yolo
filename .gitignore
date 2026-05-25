@@ -15,6 +15,7 @@ __pycache__/
 *.trt
 weights/
 models/
+mlflow.db
 
 # Data & Video
 data/
