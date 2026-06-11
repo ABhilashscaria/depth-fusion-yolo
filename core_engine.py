@@ -135,8 +135,11 @@ if __name__ == "__main__":
     
     # Run the physical stress-test image
     print("\n🚀 Executing Dual-Gate Pipeline...")
+    print("\n🚀 Profiling pt Runtime Performance metrics...")
+    start_time = time.perf_counter()
     results = engine.predict('rajatest.jpg') # Swap this string to test your different edge-case images
-    
+    latency = (time.perf_counter() - start_time) * 1000
+    print(f"⏱️ Single Frame Processing Latency: {latency:.2f} ms ({1000/latency:.1f} FPS equivalence)")
     print("\n--- Final Output Payload ---")
     print(json.dumps(results, indent=4))
     
