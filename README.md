@@ -90,7 +90,7 @@ python -m src.pipeline.stream_manager
 ---
 
 ## 🏗️ Repository Architecture
-The codebase adheres to SOLID principles, utilizing the **Strategy Pattern** to decouple the core spatial physics from the execution providers (PyTorch vs. ONNX).
+
 
 ```text
 ├── config/
