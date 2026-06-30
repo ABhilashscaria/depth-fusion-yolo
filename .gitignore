@@ -30,3 +30,6 @@ initial_test_images/
 logs/
 runs/
 output/
+
+#Other
+.agents/

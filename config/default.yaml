@@ -1,0 +1,30 @@
+# 🛡️ Zero-Shot Spatial Verification Engine - Global Config
+
+system:
+  device: "cuda:0"
+  profile_latency: true
+
+models:
+  yolo:
+    pytorch_weights: "yolo11n-seg.pt"
+    onnx_weights: "yolo11n-seg.onnx"
+    confidence_threshold: 0.5
+  depth:
+    hf_model_id: "depth-anything/Depth-Anything-V2-Small-hf"
+    onnx_weights: "depth_anything_v2.onnx"
+    # Presets: FAST (518x518), BALANCED (756x756), FULL (null)
+    pytorch_resolution: "FAST" 
+    onnx_input_size: 518
+    warmup_runs: 3
+
+spatial_physics:
+  # Gate 1: Internal Volume (Is it a flat reflection?)
+  min_volume: 0.005
+  # Gate 2: Environmental Step-Off (Is it printed flush on the wall?)
+  min_step_delta: 0.05
+  # Halo Calibration Math
+  halo_kernel_size: 5
+  halo_iterations: 3
+
+ingestion:
+  camera_source: 2 # 0 for local webcam, or "rtsp://..."
